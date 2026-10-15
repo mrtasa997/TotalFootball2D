@@ -18,11 +18,20 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Install Gradle
-      run: sudo apt-get update && sudo apt-get install -y gradle
+    - name: Auto-Create Root Gradle Files
+      run: |
+        if [ ! -f "settings.gradle" ]; then
+          echo 'rootProject.name = "TotalFootball2D"' > settings.gradle
+          echo "include ':app'" >> settings.gradle
+        fi
+        if [ ! -f "build.gradle" ]; then
+          echo "buildscript { repositories { google(); mavenCentral() } dependencies { classpath 'com.android.tools.build:gradle:8.1.1'; classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.20' } }" > build.gradle
+        fi
 
-    - name: Generate Gradle Wrapper
-      run: gradle wrapper
+    - name: Install Gradle & Wrapper
+      run: |
+        sudo apt-get update && sudo apt-get install -y gradle
+        gradle wrapper
 
     - name: Build Debug APK
       run: ./gradlew assembleDebug
