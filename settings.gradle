@@ -1,0 +1,2 @@
+rootProject.name = "TotalFootball2D"
+include ':app'
