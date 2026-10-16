@@ -14,8 +14,8 @@ class GameView(context: Context) : SurfaceView(context), Runnable, SurfaceHolder
     private var isPlaying = false
     private val paint = Paint()
 
-    private var ballX = 500f
-    private var ballY = 900f
+    private var ballX = 0f
+    private var ballY = 0f
     private var ballSpeedX = 0f
     private var ballSpeedY = 0f
     private val friction = 0.98f
@@ -23,6 +23,12 @@ class GameView(context: Context) : SurfaceView(context), Runnable, SurfaceHolder
     private var isDragging = false
     private var touchStartX = 0f
     private var touchStartY = 0f
+
+    // عداد الأهداف
+    private var scoreTeam1 = 0
+    private var scoreTeam2 = 0
+    private var goalMessage = ""
+    private var goalMessageTimer = 0
 
     init {
         holder.addCallback(this)
@@ -36,10 +42,14 @@ class GameView(context: Context) : SurfaceView(context), Runnable, SurfaceHolder
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-        if (ballX == 500f && ballY == 900f) {
-            ballX = width / 2f
-            ballY = height / 2f
-        }
+        resetBall(width, height)
+    }
+
+    private fun resetBall(width: Int, height: Int) {
+        ballX = width / 2f
+        ballY = height / 2f
+        ballSpeedX = 0f
+        ballSpeedY = 0f
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -59,7 +69,7 @@ class GameView(context: Context) : SurfaceView(context), Runnable, SurfaceHolder
         while (isPlaying) {
             if (holder.surface.isValid) {
                 val canvas = holder.lockCanvas()
-                updatePhysics()
+                updatePhysics(width, height)
                 drawGame(canvas)
                 holder.unlockCanvasAndPost(canvas)
             }
@@ -71,7 +81,7 @@ class GameView(context: Context) : SurfaceView(context), Runnable, SurfaceHolder
         }
     }
 
-    private fun updatePhysics() {
+    private fun updatePhysics(width: Int, height: Int) {
         ballX += ballSpeedX
         ballY += ballSpeedY
 
@@ -79,6 +89,36 @@ class GameView(context: Context) : SurfaceView(context), Runnable, SurfaceHolder
         ballSpeedY *= friction
 
         val margin = 50f
+        val goalWidth = 300f
+        val goalLeft = (width - goalWidth) / 2f
+        val goalRight = (width + goalWidth) / 2f
+
+        // فحص دخول الكرة للمرمى (في الأعلى أو الأسفل)
+        if (ballY < margin) {
+            if (ballX in goalLeft..goalRight) {
+                // هدف لصالح الفريق الأول (الأسفل)
+                scoreTeam1++
+                goalMessage = "هدف! Team 1"
+                goalMessageTimer = 60
+                resetBall(width, height)
+            } else {
+                ballY = margin
+                ballSpeedY *= -0.7f
+            }
+        } else if (ballY > height - margin) {
+            if (ballX in goalLeft..goalRight) {
+                // هدف لصالح الفريق الثاني (الأعلى)
+                scoreTeam2++
+                goalMessage = "هدف! Team 2"
+                goalMessageTimer = 60
+                resetBall(width, height)
+            } else {
+                ballY = height - margin
+                ballSpeedY *= -0.7f
+            }
+        }
+
+        // الحواف الجانبية
         if (ballX < margin) {
             ballX = margin
             ballSpeedX *= -0.7f
@@ -87,16 +127,13 @@ class GameView(context: Context) : SurfaceView(context), Runnable, SurfaceHolder
             ballSpeedX *= -0.7f
         }
 
-        if (ballY < margin) {
-            ballY = margin
-            ballSpeedY *= -0.7f
-        } else if (ballY > height - margin) {
-            ballY = height - margin
-            ballSpeedY *= -0.7f
+        if (goalMessageTimer > 0) {
+            goalMessageTimer--
         }
     }
 
     private fun drawGame(canvas: Canvas) {
+        // خلفية الملعب
         canvas.drawColor(Color.parseColor("#2E7D32"))
 
         paint.color = Color.WHITE
@@ -104,6 +141,7 @@ class GameView(context: Context) : SurfaceView(context), Runnable, SurfaceHolder
         paint.strokeWidth = 6f
 
         val margin = 50f
+        // حدود الملعب
         canvas.drawRect(margin, margin, width - margin, height - margin, paint)
         canvas.drawLine(margin, height / 2f, width - margin, height / 2f, paint)
         canvas.drawCircle(width / 2f, height / 2f, 180f, paint)
@@ -111,10 +149,25 @@ class GameView(context: Context) : SurfaceView(context), Runnable, SurfaceHolder
         paint.style = Paint.Style.FILL
         canvas.drawCircle(width / 2f, height / 2f, 12f, paint)
 
+        // المرميان
         val goalWidth = 300f
         canvas.drawRect((width - goalWidth) / 2f, margin - 40f, (width + goalWidth) / 2f, margin, paint)
         canvas.drawRect((width - goalWidth) / 2f, height - margin, (width + goalWidth) / 2f, height - margin + 40f, paint)
 
+        // رسم النتيجة في الأعلى
+        paint.textSize = 60f
+        paint.style = Paint.Style.FILL
+        paint.color = Color.WHITE
+        canvas.drawText("Score: $scoreTeam1 - $scoreTeam2", 80f, 130f, paint)
+
+        // رسالة الهدف عند تسجيله
+        if (goalMessageTimer > 0) {
+            paint.textSize = 90f
+            paint.color = Color.YELLOW
+            canvas.drawText(goalMessage, width / 4f, height / 2f, paint)
+        }
+
+        // رسم الكرة
         paint.style = Paint.Style.FILL
         paint.color = Color.WHITE
         canvas.drawCircle(ballX, ballY, 30f, paint)
@@ -124,6 +177,7 @@ class GameView(context: Context) : SurfaceView(context), Runnable, SurfaceHolder
         paint.strokeWidth = 3f
         canvas.drawCircle(ballX, ballY, 30f, paint)
 
+        // خط التوجيه أثناء سحب الكرة
         if (isDragging) {
             paint.color = Color.YELLOW
             paint.strokeWidth = 8f
